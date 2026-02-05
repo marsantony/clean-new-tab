@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+
+# Virtual environment
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Build artifacts
+*.zip
+*.crx
+*.pem
+
+# Temporary files
+*.tmp
+*.log

@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Clean New Tab",
+  "version": "1.0.0",
+  "description": "乾淨的新分頁，支援自訂背景圖片、GIF、影片及 Unsplash 桌布",
+  "permissions": ["storage", "unlimitedStorage"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

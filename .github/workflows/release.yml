@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Verify version matches manifest
+        run: |
+          manifest_version=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")
+          tag_version="${{ steps.version.outputs.VERSION }}"
+          if [ "$manifest_version" != "$tag_version" ]; then
+            echo "ERROR: Tag version ($tag_version) doesn't match manifest version ($manifest_version)"
+            exit 1
+          fi
+          echo "Version: $tag_version"
+
+      - name: Build ZIP
+        run: |
+          zip -r clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip \
+            manifest.json \
+            newtab.html \
+            css/ \
+            js/ \
+            icons/ \
+            -x ".*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: true

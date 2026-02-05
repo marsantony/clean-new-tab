@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: |
+          echo "Validating manifest.json..."
+          python3 -c "
+          import json, sys
+          with open('manifest.json') as f:
+              manifest = json.load(f)
+
+          required = ['manifest_version', 'name', 'version']
+          for key in required:
+              if key not in manifest:
+                  print(f'ERROR: Missing required field: {key}')
+                  sys.exit(1)
+
+          if manifest['manifest_version'] != 3:
+              print('ERROR: manifest_version must be 3')
+              sys.exit(1)
+
+          print(f'Extension: {manifest[\"name\"]} v{manifest[\"version\"]}')
+          print('manifest.json is valid')
+          "
+
+      - name: Check required files exist
+        run: |
+          echo "Checking required files..."
+          files=("newtab.html" "css/newtab.css" "js/newtab.js" "icons/icon16.png" "icons/icon48.png" "icons/icon128.png")
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Missing file: $file"
+              exit 1
+            fi
+            echo "  ✓ $file"
+          done
+          echo "All required files present"
+
+      - name: Check for sensitive files
+        run: |
+          echo "Checking for sensitive files..."
+          sensitive_patterns=(".env" "*.pem" "*.key" "credentials" "secret")
+          found=0
+          for pattern in "${sensitive_patterns[@]}"; do
+            matches=$(find . -name "$pattern" -not -path "./.git/*" 2>/dev/null)
+            if [ -n "$matches" ]; then
+              echo "WARNING: Found potentially sensitive file: $matches"
+              found=1
+            fi
+          done
+          if [ $found -eq 1 ]; then
+            echo "ERROR: Sensitive files detected"
+            exit 1
+          fi
+          echo "No sensitive files found"
+
+      - name: Validate HTML
+        run: |
+          echo "Checking HTML structure..."
+          python3 -c "
+          from html.parser import HTMLParser
+          import sys
+
+          class Validator(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.errors = []
+              def handle_starttag(self, tag, attrs):
+                  pass
+
+          with open('newtab.html') as f:
+              content = f.read()
+
+          parser = Validator()
+          try:
+              parser.feed(content)
+              print('HTML parsed successfully')
+          except Exception as e:
+              print(f'HTML parse error: {e}')
+              sys.exit(1)
+          "
+
+      - name: Validate JavaScript syntax
+        run: |
+          echo "Checking JavaScript syntax..."
+          node --check js/newtab.js
+          echo "JavaScript syntax is valid"
+
+  build:
+    name: Build Extension ZIP
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ZIP
+        run: |
+          zip -r clean-new-tab.zip \
+            manifest.json \
+            newtab.html \
+            css/ \
+            js/ \
+            icons/ \
+            -x ".*"
+          echo "Built clean-new-tab.zip"
+          ls -lh clean-new-tab.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-new-tab-extension
+          path: clean-new-tab.zip
+          retention-days: 30

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新分頁</title>
+  <link rel="stylesheet" href="css/newtab.css">
+</head>
+<body>
+  <!-- 背景容器 -->
+  <div id="bg-container">
+    <div id="bg-layer-a" class="bg-layer active"></div>
+    <div id="bg-layer-b" class="bg-layer"></div>
+    <video id="bg-video" class="bg-layer" muted loop playsinline></video>
+  </div>
+
+  <!-- 設定按鈕 -->
+  <button id="settings-btn" title="設定">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  <!-- 設定面板 overlay -->
+  <div id="settings-overlay" class="hidden">
+    <div id="settings-panel">
+      <div class="settings-header">
+        <h2>背景設定</h2>
+        <button id="settings-close">&times;</button>
+      </div>
+
+      <div class="settings-body">
+        <!-- 來源選擇 -->
+        <div class="setting-group">
+          <label class="setting-label">背景來源</label>
+          <div class="tab-bar">
+            <button class="tab active" data-tab="upload">上傳檔案</button>
+            <button class="tab" data-tab="unsplash">Unsplash</button>
+          </div>
+        </div>
+
+        <!-- 上傳檔案區域 -->
+        <div id="tab-upload" class="tab-content active">
+          <div class="setting-group">
+            <label class="setting-label">新增檔案</label>
+            <p class="setting-hint">支援 JPG、PNG、WebP、GIF、MP4、WebM</p>
+            <div id="upload-area">
+              <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/webm" />
+              <div id="upload-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>點擊或拖曳檔案到此處</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">已上傳的檔案</label>
+            <div id="file-list"></div>
+            <div id="file-list-empty" class="empty-hint">尚未上傳任何檔案</div>
+          </div>
+        </div>
+
+        <!-- Unsplash 區域 -->
+        <div id="tab-unsplash" class="tab-content">
+          <div class="setting-group">
+            <label class="setting-label">API Key</label>
+            <p class="setting-hint">請至 <a href="https://unsplash.com/developers" target="_blank">Unsplash Developers</a> 申請</p>
+            <input type="text" id="unsplash-api-key" placeholder="輸入你的 Unsplash Access Key" />
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">隨機桌布張數</label>
+            <div class="range-row">
+              <input type="range" id="unsplash-count" min="1" max="10" value="5" />
+              <span id="unsplash-count-val">5</span>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <button id="unsplash-fetch" class="btn-primary">取得隨機桌布</button>
+            <div id="unsplash-status"></div>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">已取得的桌布</label>
+            <div id="unsplash-list"></div>
+            <div id="unsplash-list-empty" class="empty-hint">尚未取得任何桌布</div>
+          </div>
+        </div>
+
+        <!-- 播放設定 -->
+        <div class="setting-group">
+          <label class="setting-label">播放模式</label>
+          <div class="radio-group">
+            <label><input type="radio" name="playMode" value="single" checked /> 單張顯示</label>
+            <label><input type="radio" name="playMode" value="sequential" /> 定序輪播</label>
+            <label><input type="radio" name="playMode" value="random" /> 隨機輪播</label>
+          </div>
+        </div>
+
+        <div class="setting-group" id="interval-group">
+          <label class="setting-label">切換間隔</label>
+          <div class="range-row">
+            <input type="range" id="interval" min="5" max="300" value="10" step="1" />
+            <span id="interval-val">10 秒</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/newtab.js"></script>
+</body>
+</html>
