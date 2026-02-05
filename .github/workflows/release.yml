@@ -5,13 +5,17 @@ on:
     tags:
       - 'v*'
 
+# Restrict permissions to minimum required
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: write  # Required for creating releases and uploading assets
 
     steps:
       - name: Checkout
@@ -31,6 +35,40 @@ jobs:
           fi
           echo "Version: $tag_version"
 
+      - name: Check for sensitive files
+        run: |
+          echo "Checking for sensitive files before release..."
+          sensitive_patterns=(
+            ".env"
+            ".env.*"
+            "*.pem"
+            "*.key"
+            "*.p12"
+            "*.pfx"
+            "*secret*"
+            "*password*"
+            "*.token"
+            "credentials"
+            "id_rsa*"
+            "id_ed25519*"
+            "*.sqlite"
+            "*.db"
+            "config.json"
+          )
+          found=0
+          for pattern in "${sensitive_patterns[@]}"; do
+            matches=$(find . -name "$pattern" -not -path "./.git/*" 2>/dev/null)
+            if [ -n "$matches" ]; then
+              echo "ERROR: Found potentially sensitive file: $matches"
+              found=1
+            fi
+          done
+          if [ $found -eq 1 ]; then
+            echo "ERROR: Sensitive files detected - aborting release"
+            exit 1
+          fi
+          echo "No sensitive files found"
+
       - name: Build ZIP
         run: |
           zip -r clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip \
@@ -40,9 +78,36 @@ jobs:
             js/ \
             icons/ \
             -x ".*"
+          echo "Built clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip"
+
+      - name: Generate checksums
+        run: |
+          sha256sum clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip > checksums-sha256.txt
+          sha512sum clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip > checksums-sha512.txt
+          echo "SHA256:"
+          cat checksums-sha256.txt
+          echo "SHA512:"
+          cat checksums-sha512.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip
+          files: |
+            clean-new-tab-v${{ steps.version.outputs.VERSION }}.zip
+            checksums-sha256.txt
+            checksums-sha512.txt
           generate_release_notes: true
+          body: |
+            ## Verify Download Integrity
+
+            After downloading, verify the ZIP file integrity:
+
+            **SHA256:**
+            ```bash
+            sha256sum -c checksums-sha256.txt
+            ```
+
+            **SHA512:**
+            ```bash
+            sha512sum -c checksums-sha512.txt
+            ```

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate Extension
@@ -53,7 +56,23 @@ jobs:
       - name: Check for sensitive files
         run: |
           echo "Checking for sensitive files..."
-          sensitive_patterns=(".env" "*.pem" "*.key" "credentials" "secret")
+          sensitive_patterns=(
+            ".env"
+            ".env.*"
+            "*.pem"
+            "*.key"
+            "*.p12"
+            "*.pfx"
+            "*secret*"
+            "*password*"
+            "*.token"
+            "credentials"
+            "id_rsa*"
+            "id_ed25519*"
+            "*.sqlite"
+            "*.db"
+            "config.json"
+          )
           found=0
           for pattern in "${sensitive_patterns[@]}"; do
             matches=$(find . -name "$pattern" -not -path "./.git/*" 2>/dev/null)
@@ -100,10 +119,30 @@ jobs:
           node --check js/newtab.js
           echo "JavaScript syntax is valid"
 
+  codeql:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
   build:
     name: Build Extension ZIP
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [validate, codeql]
 
     steps:
       - name: Checkout
