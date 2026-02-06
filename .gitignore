@@ -22,6 +22,11 @@ node_modules/
 *.crx
 *.pem
 
+# Test reports
+playwright-report/
+test-results/
+coverage/
+
 # Temporary files
 *.tmp
 *.log
