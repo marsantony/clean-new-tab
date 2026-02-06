@@ -116,29 +116,39 @@ let activeLayer = 'a'; // 'a' | 'b' — 用於 crossfade
 
 // ── DOM 元素 ──
 const $ = id => document.getElementById(id);
-const bgLayerA = $('bg-layer-a');
-const bgLayerB = $('bg-layer-b');
-const bgVideo = $('bg-video');
-const settingsBtn = $('settings-btn');
-const settingsOverlay = $('settings-overlay');
-const settingsClose = $('settings-close');
-const fileInput = $('file-input');
-const uploadArea = $('upload-area');
-const fileList = $('file-list');
-const fileListEmpty = $('file-list-empty');
-const unsplashList = $('unsplash-list');
-const unsplashListEmpty = $('unsplash-list-empty');
-const unsplashFetchBtn = $('unsplash-fetch');
-const unsplashStatus = $('unsplash-status');
-const unsplashApiKeyInput = $('unsplash-api-key');
-const unsplashCountInput = $('unsplash-count');
-const unsplashCountVal = $('unsplash-count-val');
-const intervalInput = $('interval');
-const intervalVal = $('interval-val');
-const intervalGroup = $('interval-group');
+let bgLayerA, bgLayerB, bgVideo;
+let settingsBtn, settingsOverlay, settingsClose;
+let fileInput, uploadArea, fileList, fileListEmpty;
+let unsplashList, unsplashListEmpty, unsplashFetchBtn, unsplashStatus;
+let unsplashApiKeyInput, unsplashCountInput, unsplashCountVal;
+let intervalInput, intervalVal, intervalGroup;
+
+function initDOM() {
+  bgLayerA = $('bg-layer-a');
+  bgLayerB = $('bg-layer-b');
+  bgVideo = $('bg-video');
+  settingsBtn = $('settings-btn');
+  settingsOverlay = $('settings-overlay');
+  settingsClose = $('settings-close');
+  fileInput = $('file-input');
+  uploadArea = $('upload-area');
+  fileList = $('file-list');
+  fileListEmpty = $('file-list-empty');
+  unsplashList = $('unsplash-list');
+  unsplashListEmpty = $('unsplash-list-empty');
+  unsplashFetchBtn = $('unsplash-fetch');
+  unsplashStatus = $('unsplash-status');
+  unsplashApiKeyInput = $('unsplash-api-key');
+  unsplashCountInput = $('unsplash-count');
+  unsplashCountVal = $('unsplash-count-val');
+  intervalInput = $('interval');
+  intervalVal = $('interval-val');
+  intervalGroup = $('interval-group');
+}
 
 // ── 初始化 ──
 async function init() {
+  initDOM();
   settings = await Settings.load();
   await loadMedia();
   applyBackground();
@@ -592,3 +602,41 @@ async function reloadAndApply() {
 
 // ── 啟動 ──
 document.addEventListener('DOMContentLoaded', init);
+
+// ── 測試用匯出 ──
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    MediaDB,
+    Settings,
+    initDOM,
+    init,
+    loadMedia,
+    applyBackground,
+    showImage,
+    showVideo,
+    startSlideshow,
+    stopSlideshow,
+    advanceSlide,
+    bindEvents,
+    closeSettings,
+    syncUI,
+    syncIntervalVisibility,
+    handleFileUpload,
+    handleFiles,
+    renderFileList,
+    renderUnsplashList,
+    createThumbElement,
+    fetchUnsplash,
+    reloadAndApply,
+    get settings() { return settings; },
+    set settings(v) { settings = v; },
+    get mediaItems() { return mediaItems; },
+    set mediaItems(v) { mediaItems = v; },
+    get currentIndex() { return currentIndex; },
+    set currentIndex(v) { currentIndex = v; },
+    get slideshowTimer() { return slideshowTimer; },
+    set slideshowTimer(v) { slideshowTimer = v; },
+    get activeLayer() { return activeLayer; },
+    set activeLayer(v) { activeLayer = v; },
+  };
+}
