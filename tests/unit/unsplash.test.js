@@ -65,8 +65,11 @@ describe('Unsplash', () => {
         id: 'abc123',
         urls: { regular: 'https://images.unsplash.com/photo-abc' },
         alt_description: 'A beautiful landscape',
-        user: { name: 'John Doe' },
-        links: { html: 'https://unsplash.com/photos/abc123' },
+        user: { name: 'John Doe', links: { html: 'https://unsplash.com/@johndoe' } },
+        links: {
+          html: 'https://unsplash.com/photos/abc123',
+          download_location: 'https://api.unsplash.com/photos/abc123/download',
+        },
       },
     ];
 
@@ -76,7 +79,8 @@ describe('Unsplash', () => {
 
       global.fetch
         .mockResolvedValueOnce({ ok: true, json: async () => mockPhotos })
-        .mockResolvedValueOnce({ blob: async () => mockBlob });
+        .mockResolvedValueOnce({ blob: async () => mockBlob })
+        .mockResolvedValueOnce({ ok: true }); // download tracking
 
       await fetchUnsplash();
 
@@ -85,6 +89,8 @@ describe('Unsplash', () => {
       expect(all[0].id).toBe('unsplash_abc123');
       expect(all[0].source).toBe('unsplash');
       expect(all[0].photographer).toBe('John Doe');
+      expect(all[0].photographerUrl).toBe('https://unsplash.com/@johndoe?utm_source=clean_new_tab&utm_medium=referral');
+      expect(all[0].unsplashUrl).toContain('utm_source=clean_new_tab');
     });
 
     test('unsplashIds 應被更新', async () => {
@@ -93,11 +99,30 @@ describe('Unsplash', () => {
 
       global.fetch
         .mockResolvedValueOnce({ ok: true, json: async () => mockPhotos })
-        .mockResolvedValueOnce({ blob: async () => mockBlob });
+        .mockResolvedValueOnce({ blob: async () => mockBlob })
+        .mockResolvedValueOnce({ ok: true }); // download tracking
 
       await fetchUnsplash();
 
       expect(newtab.settings.unsplashIds).toContain('unsplash_abc123');
+    });
+
+    test('應觸發 download tracking endpoint', async () => {
+      newtab.settings.unsplashApiKey = 'test-key';
+      const mockBlob = new Blob(['img-data'], { type: 'image/jpeg' });
+
+      global.fetch
+        .mockResolvedValueOnce({ ok: true, json: async () => mockPhotos })
+        .mockResolvedValueOnce({ blob: async () => mockBlob })
+        .mockResolvedValueOnce({ ok: true }); // download tracking
+
+      await fetchUnsplash();
+
+      // fetch 呼叫: 1) API, 2) 圖片下載, 3) download tracking
+      const trackingCall = global.fetch.mock.calls[2];
+      expect(trackingCall[0]).toContain('https://api.unsplash.com/photos/abc123/download');
+      expect(trackingCall[0]).toContain('utm_source=clean_new_tab');
+      expect(trackingCall[1].headers.Authorization).toBe('Client-ID test-key');
     });
   });
 

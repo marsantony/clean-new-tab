@@ -225,7 +225,7 @@ describe('Render Lists & Thumb Element', () => {
   });
 
   describe('handleFileUpload', () => {
-    test('應呼叫 handleFiles 並清空 file input value', () => {
+    test('應呼叫 handleFiles 並清空 file input value', async () => {
       const fileInput = document.getElementById('file-input');
       // 設定一個假 value（jsdom 不允許真正設 value，但可測 reset）
       Object.defineProperty(fileInput, 'value', {
@@ -236,8 +236,7 @@ describe('Render Lists & Thumb Element', () => {
       const fakeFiles = [new File(['x'], 'test.jpg', { type: 'image/jpeg' })];
       const event = { target: { files: fakeFiles } };
 
-      // handleFileUpload 是 fire-and-forget（不回傳 promise）
-      handleFileUpload(event);
+      await handleFileUpload(event);
 
       // fileInput.value 應被重設為空
       expect(fileInput.value).toBe('');

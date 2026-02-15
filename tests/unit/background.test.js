@@ -1,5 +1,5 @@
 const newtab = require('../../js/newtab');
-const { applyBackground, showImage, showVideo } = newtab;
+const { applyBackground, showImage, showVideo, clearBackground, updateAttribution } = newtab;
 
 describe('Background Display', () => {
   beforeEach(() => {
@@ -25,10 +25,17 @@ describe('Background Display', () => {
   });
 
   describe('applyBackground', () => {
-    test('mediaItems 為空時不應有任何動作', () => {
+    test('mediaItems 為空時應清除背景', () => {
+      const layerA = document.getElementById('bg-layer-a');
+      layerA.style.backgroundImage = 'url("blob:old")';
+      layerA.classList.add('active');
+
       newtab.mediaItems = [];
       applyBackground();
+
       expect(URL.createObjectURL).not.toHaveBeenCalled();
+      expect(layerA.style.backgroundImage).toBe('');
+      expect(layerA.classList.contains('active')).toBe(false);
     });
 
     test('圖片項目應呼叫 showImage 流程', () => {
@@ -111,6 +118,32 @@ describe('Background Display', () => {
       showVideo(makeVideoItem());
 
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:old-video-url');
+    });
+  });
+
+  describe('updateAttribution', () => {
+    test('Unsplash 項目應顯示攝影師署名', () => {
+      const item = {
+        ...makeImageItem(),
+        source: 'unsplash',
+        photographer: 'Jane Doe',
+        photographerUrl: 'https://unsplash.com/@janedoe?utm_source=clean_new_tab&utm_medium=referral',
+      };
+      updateAttribution(item);
+
+      const el = document.getElementById('unsplash-attribution');
+      const link = document.getElementById('attribution-photographer');
+      expect(el.classList.contains('hidden')).toBe(false);
+      expect(link.textContent).toBe('Jane Doe');
+      expect(link.href).toContain('@janedoe');
+    });
+
+    test('上傳項目應隱藏署名', () => {
+      const item = { ...makeImageItem(), source: 'upload' };
+      updateAttribution(item);
+
+      const el = document.getElementById('unsplash-attribution');
+      expect(el.classList.contains('hidden')).toBe(true);
     });
   });
 });

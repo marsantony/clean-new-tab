@@ -154,7 +154,7 @@ async function init() {
   applyBackground();
   startSlideshow();
   bindEvents();
-  syncUI();
+  await syncUI();
 }
 
 // ── 載入媒體 ──
@@ -179,7 +179,10 @@ async function loadMedia() {
 
 // ── 背景顯示 ──
 function applyBackground() {
-  if (mediaItems.length === 0) return;
+  if (mediaItems.length === 0) {
+    clearBackground();
+    return;
+  }
 
   const item = mediaItems[currentIndex % mediaItems.length];
   if (!item) return;
@@ -189,6 +192,44 @@ function applyBackground() {
   } else {
     showImage(item);
   }
+
+  updateAttribution(item);
+}
+
+function updateAttribution(item) {
+  const el = document.getElementById('unsplash-attribution');
+  if (!el) return;
+
+  if (item.source === 'unsplash' && item.photographer) {
+    const photographerLink = document.getElementById('attribution-photographer');
+    photographerLink.textContent = item.photographer;
+    photographerLink.href = item.photographerUrl || '#';
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+function clearBackground() {
+  bgLayerA.style.backgroundImage = '';
+  bgLayerA.classList.remove('active');
+  bgLayerB.style.backgroundImage = '';
+  bgLayerB.classList.remove('active');
+  bgVideo.classList.remove('active');
+  bgVideo.pause();
+  bgVideo.removeAttribute('src');
+
+  // 釋放 blob URL
+  for (const layer of [bgLayerA, bgLayerB, bgVideo]) {
+    if (layer.dataset.blobUrl) {
+      URL.revokeObjectURL(layer.dataset.blobUrl);
+      delete layer.dataset.blobUrl;
+    }
+  }
+
+  // 隱藏署名
+  const attrEl = document.getElementById('unsplash-attribution');
+  if (attrEl) attrEl.classList.add('hidden');
 }
 
 function showImage(item) {
@@ -357,7 +398,7 @@ function closeSettings() {
 }
 
 // ── 同步 UI ──
-function syncUI() {
+async function syncUI() {
   // Tab
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', t.dataset.tab === settings.source);
@@ -382,8 +423,8 @@ function syncUI() {
   unsplashCountVal.textContent = settings.unsplashCount;
 
   // 檔案列表
-  renderFileList();
-  renderUnsplashList();
+  await renderFileList();
+  await renderUnsplashList();
 }
 
 function syncIntervalVisibility() {
@@ -391,8 +432,8 @@ function syncIntervalVisibility() {
 }
 
 // ── 檔案上傳處理 ──
-function handleFileUpload(e) {
-  handleFiles(e.target.files);
+async function handleFileUpload(e) {
+  await handleFiles(e.target.files);
   fileInput.value = '';
 }
 
@@ -423,7 +464,7 @@ async function handleFiles(files) {
 
   await Settings.save({ uploadIds: settings.uploadIds });
   await reloadAndApply();
-  renderFileList();
+  await renderFileList();
 }
 
 // ── 渲染檔案列表 ──
@@ -503,11 +544,11 @@ function createThumbElement(item, source) {
     if (source === 'upload') {
       settings.uploadIds = settings.uploadIds.filter(id => id !== item.id);
       await Settings.save({ uploadIds: settings.uploadIds });
-      renderFileList();
+      await renderFileList();
     } else {
       settings.unsplashIds = settings.unsplashIds.filter(id => id !== item.id);
       await Settings.save({ unsplashIds: settings.unsplashIds });
-      renderUnsplashList();
+      await renderUnsplashList();
     }
 
     await reloadAndApply();
@@ -551,6 +592,8 @@ async function fetchUnsplash() {
     settings.unsplashIds = [];
 
     // 下載並儲存新圖片
+    const utmSuffix = '?utm_source=clean_new_tab&utm_medium=referral';
+
     for (let i = 0; i < photos.length; i++) {
       const photo = photos[i];
       unsplashStatus.textContent = `正在下載 ${i + 1}/${photos.length}...`;
@@ -558,6 +601,13 @@ async function fetchUnsplash() {
       const imgUrl = photo.urls.regular || photo.urls.full;
       const imgRes = await fetch(imgUrl);
       const blob = await imgRes.blob();
+
+      // 觸發 Unsplash download tracking（API 規範要求）
+      if (photo.links?.download_location) {
+        fetch(`${photo.links.download_location}${utmSuffix}`, {
+          headers: { Authorization: `Client-ID ${apiKey}` }
+        }).catch(() => {});
+      }
 
       const id = `unsplash_${photo.id}`;
       await MediaDB.put({
@@ -568,7 +618,8 @@ async function fetchUnsplash() {
         blob,
         name: photo.alt_description || `Unsplash ${photo.id}`,
         photographer: photo.user?.name,
-        unsplashUrl: photo.links?.html,
+        photographerUrl: photo.user?.links?.html ? photo.user.links.html + utmSuffix : null,
+        unsplashUrl: (photo.links?.html || 'https://unsplash.com') + utmSuffix,
         addedAt: Date.now()
       });
 
@@ -579,7 +630,7 @@ async function fetchUnsplash() {
     unsplashStatus.textContent = `成功取得 ${photos.length} 張桌布`;
     unsplashStatus.className = '';
 
-    renderUnsplashList();
+    await renderUnsplashList();
 
     if (settings.source === 'unsplash') {
       await reloadAndApply();
@@ -628,6 +679,8 @@ if (typeof module !== 'undefined' && module.exports) {
     createThumbElement,
     fetchUnsplash,
     reloadAndApply,
+    updateAttribution,
+    clearBackground,
     get settings() { return settings; },
     set settings(v) { settings = v; },
     get mediaItems() { return mediaItems; },
