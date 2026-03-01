@@ -22,62 +22,23 @@ const MediaDB = (() => {
     });
   }
 
-  async function getAll() {
+  async function withStore(mode, fn) {
     const db = await open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.getAll();
+      const tx = db.transaction(STORE_NAME, mode);
+      const req = fn(tx.objectStore(STORE_NAME));
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
-  async function get(id) {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function put(item) {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.put(item);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function remove(id) {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function clear() {
-    const db = await open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  return { getAll, get, put, remove, clear };
+  return {
+    getAll: () => withStore('readonly', s => s.getAll()),
+    get: (id) => withStore('readonly', s => s.get(id)),
+    put: (item) => withStore('readwrite', s => s.put(item)),
+    remove: (id) => withStore('readwrite', s => s.delete(id)),
+    clear: () => withStore('readwrite', s => s.clear()),
+  };
 })();
 
 // ── 設定管理 ──
@@ -157,24 +118,23 @@ async function init() {
   await syncUI();
 }
 
+// ── 工具函式 ──
+function orderByIds(items, ids) {
+  const idSet = new Set(ids);
+  const map = new Map(items.map(m => [m.id, m]));
+  const ordered = ids.flatMap(id => map.has(id) ? [map.get(id)] : []);
+  for (const item of items) {
+    if (!idSet.has(item.id)) ordered.push(item);
+  }
+  return ordered;
+}
+
 // ── 載入媒體 ──
 async function loadMedia() {
   const allItems = await MediaDB.getAll();
   const ids = settings.source === 'upload' ? settings.uploadIds : settings.unsplashIds;
-
-  // 依照 ID 順序排列，若 ID 不在列表中則附加到最後
-  const idSet = new Set(ids);
-  const ordered = [];
-  for (const id of ids) {
-    const item = allItems.find(m => m.id === id);
-    if (item) ordered.push(item);
-  }
-  for (const item of allItems) {
-    if (!idSet.has(item.id) && item.source === settings.source) {
-      ordered.push(item);
-    }
-  }
-  mediaItems = ordered;
+  const sourceItems = allItems.filter(m => m.source === settings.source);
+  mediaItems = orderByIds(sourceItems, ids);
 }
 
 // ── 背景顯示 ──
@@ -185,7 +145,6 @@ function applyBackground() {
   }
 
   const item = mediaItems[currentIndex % mediaItems.length];
-  if (!item) return;
 
   if (item.type === 'video') {
     showVideo(item);
@@ -422,9 +381,10 @@ async function syncUI() {
   unsplashCountInput.value = settings.unsplashCount;
   unsplashCountVal.textContent = settings.unsplashCount;
 
-  // 檔案列表
-  await renderFileList();
-  await renderUnsplashList();
+  // 檔案列表（共用一次 DB 讀取）
+  const allItems = await MediaDB.getAll();
+  await renderFileList(allItems);
+  await renderUnsplashList(allItems);
 }
 
 function syncIntervalVisibility() {
@@ -467,34 +427,32 @@ async function handleFiles(files) {
   await renderFileList();
 }
 
+function revokeThumbUrls(container) {
+  container.querySelectorAll('img, video').forEach(el => {
+    if (el.src && el.src.startsWith('blob:')) URL.revokeObjectURL(el.src);
+  });
+}
+
 // ── 渲染檔案列表 ──
-async function renderFileList() {
-  const allItems = await MediaDB.getAll();
+async function renderFileList(allItems) {
+  if (!allItems) allItems = await MediaDB.getAll();
   const uploads = allItems.filter(m => m.source === 'upload');
 
+  revokeThumbUrls(fileList);
   fileList.innerHTML = '';
   fileListEmpty.style.display = uploads.length === 0 ? 'block' : 'none';
 
-  // 依照 uploadIds 順序排列
-  const ordered = [];
-  for (const id of settings.uploadIds) {
-    const item = uploads.find(m => m.id === id);
-    if (item) ordered.push(item);
-  }
-  // 加入不在列表中的
-  for (const item of uploads) {
-    if (!settings.uploadIds.includes(item.id)) ordered.push(item);
-  }
-
+  const ordered = orderByIds(uploads, settings.uploadIds);
   for (const item of ordered) {
     fileList.appendChild(createThumbElement(item, 'upload'));
   }
 }
 
-async function renderUnsplashList() {
-  const allItems = await MediaDB.getAll();
+async function renderUnsplashList(allItems) {
+  if (!allItems) allItems = await MediaDB.getAll();
   const unsplashItems = allItems.filter(m => m.source === 'unsplash');
 
+  revokeThumbUrls(unsplashList);
   unsplashList.innerHTML = '';
   unsplashListEmpty.style.display = unsplashItems.length === 0 ? 'block' : 'none';
 
@@ -591,13 +549,11 @@ async function fetchUnsplash() {
     }
     settings.unsplashIds = [];
 
-    // 下載並儲存新圖片
+    // 並行下載所有圖片
     const utmSuffix = '?utm_source=clean_new_tab&utm_medium=referral';
+    unsplashStatus.textContent = `正在下載 ${photos.length} 張桌布...`;
 
-    for (let i = 0; i < photos.length; i++) {
-      const photo = photos[i];
-      unsplashStatus.textContent = `正在下載 ${i + 1}/${photos.length}...`;
-
+    const downloads = photos.map(async (photo) => {
       const imgUrl = photo.urls.regular || photo.urls.full;
       const imgRes = await fetch(imgUrl);
       const blob = await imgRes.blob();
@@ -609,6 +565,12 @@ async function fetchUnsplash() {
         }).catch(() => {});
       }
 
+      return { photo, blob };
+    });
+
+    const results = await Promise.all(downloads);
+
+    for (const { photo, blob } of results) {
       const id = `unsplash_${photo.id}`;
       await MediaDB.put({
         id,
