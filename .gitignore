@@ -30,3 +30,6 @@ coverage/
 # Temporary files
 *.tmp
 *.log
+
+# Claude Code working files
+tasks/
