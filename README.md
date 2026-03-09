@@ -20,7 +20,7 @@
 
 1. 下載或 clone 此專案：
    ```bash
-   git clone https://github.com/YOUR_USERNAME/clean-new-tab.git
+   git clone https://github.com/marsantony/clean-new-tab.git
    ```
 2. 開啟 Chrome，前往 `chrome://extensions/`
 3. 開啟右上角的 **開發者模式**
